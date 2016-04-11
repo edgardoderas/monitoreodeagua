@@ -166,66 +166,66 @@ void setup()
 void loop()
 {
   unsigned long currTime = millis();  // record current Time
-  if ((currTime - timeRef) <= (duration))     // controls the duration of the data collection
+  //if ((currTime - timeRef) <= (duration))     // controls the duration of the data collection
+  //{
+  if (currTime >= ndx * timeInterval + timeRef) // controls so only runs once per timeInterval
   {
-    if (currTime >= ndx * timeInterval + timeRef) // controls so only runs once per timeInterval
+    ndx++;
+    digitalWrite(ledPin, LOW); // blink the LED off to show data being taken.
+
+    // Read in sensor values
+    SensorRaw[0] = analogRead(A1_5V);
+    SensorRaw[1] = analogRead(A2_5V);
+
+    //********************************************************************************
+    thermistor = resistance(SensorRaw[0]);     // converts raw analog value to a resistance
+    Temp = steinharthart(thermistor);              // Applies the Steinhart-hart equation
+    //********************************************************************************
+
+    // Convert to voltage values
+    SensorVoltage[0] = SensorRaw[0] * VCC / 1023.0;
+    SensorVoltage[1] = SensorRaw[1] * VCC / 1023.0;
+    /* // uncomment these lines of code to use the +/- 10V sensors
+    	  SensorRaw[0] = analogRead(A1_10V);
+          SensorRaw[1] = analogRead(A2_10V);
+
+          // Convert to voltage values (20V range, -10V offset)
+          SensorVoltage[0] = SensorRaw[0]*20.0/1023.0 - 10.0;
+          SensorVoltage[1] = SensorRaw[1]*20.0/1023.0 - 10.0;
+
+    */
+
+    dataFile = SD.open(filename, FILE_WRITE);
+    // if the file is available, write to it:
+    if (dataFile)
     {
-      ndx++;
-      digitalWrite(ledPin, LOW); // blink the LED off to show data being taken.
-
-      // Read in sensor values
-      SensorRaw[0] = analogRead(A1_5V);
-      SensorRaw[1] = analogRead(A2_5V);
-
-      //********************************************************************************
-      thermistor = resistance(SensorRaw[0]);     // converts raw analog value to a resistance
-      Temp = steinharthart(thermistor);              // Applies the Steinhart-hart equation
-      //********************************************************************************
-
-      // Convert to voltage values
-      SensorVoltage[0] = SensorRaw[0] * VCC / 1023.0;
-      SensorVoltage[1] = SensorRaw[1] * VCC / 1023.0;
-      /* // uncomment these lines of code to use the +/- 10V sensors
-      	  SensorRaw[0] = analogRead(A1_10V);
-            SensorRaw[1] = analogRead(A2_10V);
-
-            // Convert to voltage values (20V range, -10V offset)
-            SensorVoltage[0] = SensorRaw[0]*20.0/1023.0 - 10.0;
-            SensorVoltage[1] = SensorRaw[1]*20.0/1023.0 - 10.0;
-
-      */
-
-      dataFile = SD.open(filename, FILE_WRITE);
-      // if the file is available, write to it:
-      if (dataFile)
-      {
-        dataFile.print((currTime - timeRef) / 1E3, 3); // 4 decimal places
-        dataFile.print("\t");
-        dataFile.println(Temp);
-        //dataFile.print("\t");
-        //dataFile.println(SensorVoltage[0]);
-        dataFile.close();
-      }
-
-      // if the file isn't open, pop up an error:
-      else
-      {
-        Serial.println("Error opening file.");
-      }
-      // Serial print to the serial monitor
-      Serial.print((currTime - timeRef) / 1E3, 3);
-      Serial.print("\t"); // tab character
-      Serial.print(Temp);
-      //Serial.print("\t");
-      //Serial.print(SensorVoltage[0]);
-      Serial.println();
-
-      digitalWrite(ledPin, HIGH); // turn the LED back on to show data collection
-      // duration is still running.
+      dataFile.print((currTime - timeRef) / 1E3, 3); // 4 decimal places
+      dataFile.print("\t");
+      dataFile.println(Temp);
+      //dataFile.print("\t");
+      //dataFile.println(SensorVoltage[0]);
+      dataFile.close();
     }
+
+    // if the file isn't open, pop up an error:
+    else
+    {
+      Serial.println("Error opening file.");
+    }
+    // Serial print to the serial monitor
+    Serial.print((currTime - timeRef) / 1E3, 3);
+    Serial.print("\t"); // tab character
+    Serial.print(Temp);
+    //Serial.print("\t");
+    //Serial.print(SensorVoltage[0]);
+    Serial.println();
+
+    digitalWrite(ledPin, HIGH); // turn the LED back on to show data collection
+    // duration is still running.
   }
-  else  // duration is complete -- wait and reset if button is pressed
-  {
+  /*}
+    else  // duration is complete -- wait and reset if button is pressed
+    {
     digitalWrite(ledPin, LOW);    // turn off LED to show data collection is done.
     while (digitalRead(buttonPin) == HIGH)
     {
@@ -236,7 +236,7 @@ void loop()
     ndx = 0;
     timeRef = millis();
 
-  }
+    }*/
 } // end of loop
 unsigned long resistance(unsigned long rawAnalogInput)
 /* function to convert the raw Analog Input reading to a resistance value
