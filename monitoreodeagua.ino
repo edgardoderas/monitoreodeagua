@@ -1,21 +1,7 @@
-/*
-  VernierShieldSDStore (v 2014.02)
-  Takes data from a Vernier Motion Detector connected to BTA connector.
 
-  The data is displayed to the serial monitor and saved to a file called datalog.txt
-
-  Data is currently displayed and stored as raw voltage levels from 0 to 5V. Currently working
-  integrate the AutoIDAnalog.ino code into this code so that data is automatically
-  calibrated.
-
-  Only the 5V analog signal is currently being used, but you can change the code to
-
-
-  See www.vernier.com/arduino for more information.
-*/
 
 #include <SD.h>      // includes the Arduino SD Library 
-
+#include <SoftwareSerial.h>
 // pin configurations for SparkFun Vernier Shield
 // A1 = Analog 1
 // A2 = Analog 2
@@ -24,11 +10,14 @@
 #define A2_5V 2
 #define A2_10V 3
 
-char * filename = "datalog.txt";  /* sets the filename for data - change this
+SoftwareSerial bluetooth(6, 7); //puerto serial especial para bluetooth
+
+
+char * filename = "tesis.txt";  /* sets the filename for data - change this
   if you want to use a different file name
   data will be concatenated onto the existing
   file if it exists */
-float dataRate = 20.0;     // # of samples per second.
+float dataRate = 100;     // # of samples per second.
 int duration = 5000;       // set the data collection duration in milliseconds
 // default value is set to 5 seconds or 5000 milliseconds
 
@@ -36,6 +25,7 @@ float Temp;
 unsigned long thermistor;
 int rawAnalogReading;
 
+long tiempoPasado;
 unsigned long timeRef;      // reference for starting time
 unsigned long timeInterval;
 unsigned long elapsedTime;
@@ -61,6 +51,7 @@ void setup()
 {
   // initialize serial communication at 9600 bits per second:
   Serial.begin(9600);
+  bluetooth.begin(9600);
 
   // set the timeInterval based on dataRate
   timeInterval = 1E3 / dataRate;
@@ -75,10 +66,6 @@ void setup()
   Serial.println("Use reset button to reset / stop data collection.");
   Serial.println("*************************************************");
 
-  while (digitalRead(buttonPin) == HIGH)
-  {
-    // holding loop until the button goes low.
-  }
 
   /***********************
      / Setup SD Card
@@ -129,28 +116,7 @@ void setup()
   dataFile = SD.open(filename, FILE_WRITE);
   if (dataFile) // if it opens sucessfully
   {
-    dataFile.println("Vernier Format 2");
-    dataFile.println("Raw Readings taken using Ardunio");
-    dataFile.println("Data Set");
-    dataFile.print("Time");
-    // query the channel numbers
-
-    // print sensor name -- data will be displayed in raw and voltage
-    dataFile.print("\t"); //tab character
-    dataFile.print("Chan1");
-    //dataFile.print("\t"); //tab character
-    //dataFile.print("Chan2");
-    dataFile.println();
-
-    // display the units
-    dataFile.print("s");
-
-    dataFile.print("\t");
-    dataFile.print("Cº");
-    //dataFile.print("\t");
-    //dataFile.print("V");
-
-    dataFile.close(); // close the datafile
+    dataFile.close();
   }
   else  // if(datafile) -- error opening SD card
   {
@@ -161,15 +127,31 @@ void setup()
   digitalWrite(ledPin, HIGH);
   timeRef = millis();
   ndx = 0;   // datapoint index
+
+
+  tiempoPasado = millis();
+
 } // end setup
 
 void loop()
 {
+
+  if (bluetooth.available()) {
+    bluetooth.read();
+    dataFile = SD.open(filename);
+    if (dataFile) {
+      while (dataFile) // if it opens sucessfully
+      {
+        bluetooth.write(dataFile.read());
+      }
+      dataFile.close();
+    }
+  }
+
   unsigned long currTime = millis();  // record current Time
-  //if ((currTime - timeRef) <= (duration))     // controls the duration of the data collection
-  //{
-  if (currTime >= ndx * timeInterval + timeRef) // controls so only runs once per timeInterval
-  {
+  
+  if ( millis() > tiempoPasado + timeRef) {
+    tiempoPasado = millis();
     ndx++;
     digitalWrite(ledPin, LOW); // blink the LED off to show data being taken.
 
@@ -223,21 +205,11 @@ void loop()
     digitalWrite(ledPin, HIGH); // turn the LED back on to show data collection
     // duration is still running.
   }
-  /*}
-    else  // duration is complete -- wait and reset if button is pressed
-    {
-    digitalWrite(ledPin, LOW);    // turn off LED to show data collection is done.
-    while (digitalRead(buttonPin) == HIGH)
-    {
-      // holding loop until the button goes low.
-    }
-    // reset counters and timeRef
-    digitalWrite(ledPin, HIGH);
-    ndx = 0;
-    timeRef = millis();
-
-    }*/
+  
 } // end of loop
+
+
+
 unsigned long resistance(unsigned long rawAnalogInput)
 /* function to convert the raw Analog Input reading to a resistance value
    Schematic:
