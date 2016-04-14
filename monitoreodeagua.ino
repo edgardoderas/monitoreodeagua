@@ -1,5 +1,11 @@
 
-
+#if defined(ESP8266)
+#include <pgmspace.h>
+#else
+#include <avr/pgmspace.h>
+#endif
+#include <Wire.h>  // must be incuded here so that Arduino library object file references work
+#include <RtcDS3231.h>
 #include <SD.h>      // includes the Arduino SD Library 
 #include <SoftwareSerial.h>
 // pin configurations for SparkFun Vernier Shield
@@ -10,10 +16,11 @@
 #define A2_5V 2
 #define A2_10V 3
 
-SoftwareSerial bluetooth(6, 7); //puerto serial especial para bluetooth
+SoftwareSerial bluetooth(7, 6); //puerto serial especial para bluetooth
+RtcDS3231 reloj;
 
 
-char * filename = "tesis.txt";  /* sets the filename for data - change this
+char * filename = "tesis2.cvs";  /* sets the filename for data - change this
   if you want to use a different file name
   data will be concatenated onto the existing
   file if it exists */
@@ -52,6 +59,7 @@ void setup()
   // initialize serial communication at 9600 bits per second:
   Serial.begin(9600);
   bluetooth.begin(9600);
+  reloj.Begin();
 
   // set the timeInterval based on dataRate
   timeInterval = 1E3 / dataRate;
@@ -137,75 +145,105 @@ void loop()
 {
 
   if (bluetooth.available()) {
-    bluetooth.read();
-    dataFile = SD.open(filename);
-    if (dataFile) {
+    char a = bluetooth.read();
+    if (a == "d")(
+        dataFile = SD.open(filename);
+      if (dataFile) {
       while (dataFile) // if it opens sucessfully
-      {
-        bluetooth.write(dataFile.read());
+        {
+          char letra = dataFile.read();
+          if (letra == '/n')
+            delay(500);
+          bluetooth.write(letra);
+
+        }
+        dataFile.close();
       }
-      dataFile.close();
-    }
+  }
+}
+
+unsigned long currTime = millis();  // record current Time
+
+if ( millis() > tiempoPasado + timeRef) {
+  tiempoPasado = millis();
+  ndx++;
+  digitalWrite(ledPin, LOW); // blink the LED off to show data being taken.
+
+  // Read in sensor values
+  SensorRaw[0] = analogRead(A1_5V);
+  SensorRaw[1] = analogRead(A2_5V);
+
+  //********************************************************************************
+  thermistor = resistance(SensorRaw[0]);     // converts raw analog value to a resistance
+  Temp = steinharthart(thermistor);              // Applies the Steinhart-hart equation
+  //********************************************************************************
+
+  // Convert to voltage values
+  SensorVoltage[0] = SensorRaw[0] * VCC / 1023.0;
+  SensorVoltage[1] = SensorRaw[1] * VCC / 1023.0;
+  /* // uncomment these lines of code to use the +/- 10V sensors
+  	  SensorRaw[0] = analogRead(A1_10V);
+        SensorRaw[1] = analogRead(A2_10V);
+
+        // Convert to voltage values (20V range, -10V offset)
+        SensorVoltage[0] = SensorRaw[0]*20.0/1023.0 - 10.0;
+        SensorVoltage[1] = SensorRaw[1]*20.0/1023.0 - 10.0;
+
+  */
+
+  dataFile = SD.open(filename, FILE_WRITE);
+  // if the file is available, write to it:
+  if (dataFile)
+  {
+    char fechaimprimible[20];
+    RtcDateTime fechaactual = reloj.GetDateTime();
+    snprintf_P(fechaimprimible,
+               sizeof(fechaimprimible),
+               PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+               fechaactual.Month(),
+               fechaactual.Day(),
+               fechaactual.Year(),
+               fechaactual.Hour(),
+               fechaactual.Minute(),
+               fechaactual.Second() );
+    dataFile.print(fechaimprimible);
+    //dataFile.print((currTime - timeRef) / 1E3, 3); // 4 decimal places
+    dataFile.print(",");
+    dataFile.print(Temp);
+    dataFile.println(";");
+    //dataFile.print("\t");
+    //dataFile.println(SensorVoltage[0]);
+    dataFile.close();
   }
 
-  unsigned long currTime = millis();  // record current Time
-  
-  if ( millis() > tiempoPasado + timeRef) {
-    tiempoPasado = millis();
-    ndx++;
-    digitalWrite(ledPin, LOW); // blink the LED off to show data being taken.
-
-    // Read in sensor values
-    SensorRaw[0] = analogRead(A1_5V);
-    SensorRaw[1] = analogRead(A2_5V);
-
-    //********************************************************************************
-    thermistor = resistance(SensorRaw[0]);     // converts raw analog value to a resistance
-    Temp = steinharthart(thermistor);              // Applies the Steinhart-hart equation
-    //********************************************************************************
-
-    // Convert to voltage values
-    SensorVoltage[0] = SensorRaw[0] * VCC / 1023.0;
-    SensorVoltage[1] = SensorRaw[1] * VCC / 1023.0;
-    /* // uncomment these lines of code to use the +/- 10V sensors
-    	  SensorRaw[0] = analogRead(A1_10V);
-          SensorRaw[1] = analogRead(A2_10V);
-
-          // Convert to voltage values (20V range, -10V offset)
-          SensorVoltage[0] = SensorRaw[0]*20.0/1023.0 - 10.0;
-          SensorVoltage[1] = SensorRaw[1]*20.0/1023.0 - 10.0;
-
-    */
-
-    dataFile = SD.open(filename, FILE_WRITE);
-    // if the file is available, write to it:
-    if (dataFile)
-    {
-      dataFile.print((currTime - timeRef) / 1E3, 3); // 4 decimal places
-      dataFile.print("\t");
-      dataFile.println(Temp);
-      //dataFile.print("\t");
-      //dataFile.println(SensorVoltage[0]);
-      dataFile.close();
-    }
-
-    // if the file isn't open, pop up an error:
-    else
-    {
-      Serial.println("Error opening file.");
-    }
-    // Serial print to the serial monitor
-    Serial.print((currTime - timeRef) / 1E3, 3);
-    Serial.print("\t"); // tab character
-    Serial.print(Temp);
-    //Serial.print("\t");
-    //Serial.print(SensorVoltage[0]);
-    Serial.println();
-
-    digitalWrite(ledPin, HIGH); // turn the LED back on to show data collection
-    // duration is still running.
+  // if the file isn't open, pop up an error:
+  else
+  {
+    Serial.println("Error opening file.");
   }
-  
+  // Serial print to the serial monitor
+  char fechaimprimible[20];
+  RtcDateTime fechaactual = reloj.GetDateTime();
+  snprintf_P(fechaimprimible,
+             sizeof(fechaimprimible),
+             PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+             fechaactual.Month(),
+             fechaactual.Day(),
+             fechaactual.Year(),
+             fechaactual.Hour(),
+             fechaactual.Minute(),
+             fechaactual.Second() );
+  Serial.print(fechaimprimible);
+  Serial.print("\t"); // tab character
+  Serial.print(Temp);
+  //Serial.print("\t");
+  //Serial.print(SensorVoltage[0]);
+  Serial.println();
+
+  digitalWrite(ledPin, HIGH); // turn the LED back on to show data collection
+  // duration is still running.
+}
+
 } // end of loop
 
 
