@@ -1,4 +1,3 @@
-
 #if defined(ESP8266)
 #include <pgmspace.h>
 #else
@@ -18,7 +17,6 @@
 
 SoftwareSerial bluetooth(7, 6); //puerto serial especial para bluetooth
 RtcDS3231 reloj;
-
 
 char * filename = "tesis2.cvs";  /* sets the filename for data - change this
   if you want to use a different file name
@@ -146,7 +144,7 @@ void loop()
 
   if (bluetooth.available()) {
     char a = bluetooth.read();
-    if (a == "d")(
+    if (a == 'd'){
         dataFile = SD.open(filename);
       if (dataFile) {
       while (dataFile) // if it opens sucessfully
@@ -210,6 +208,8 @@ if ( millis() > tiempoPasado + timeRef) {
     //dataFile.print((currTime - timeRef) / 1E3, 3); // 4 decimal places
     dataFile.print(",");
     dataFile.print(Temp);
+    dataFile.print(",");
+    dataFile.print(SensorVoltage[1]);
     dataFile.println(";");
     //dataFile.print("\t");
     //dataFile.println(SensorVoltage[0]);
@@ -236,8 +236,8 @@ if ( millis() > tiempoPasado + timeRef) {
   Serial.print(fechaimprimible);
   Serial.print("\t"); // tab character
   Serial.print(Temp);
-  //Serial.print("\t");
-  //Serial.print(SensorVoltage[0]);
+  Serial.print("\t");
+  Serial.print(SensorVoltage[1]);
   Serial.println();
 
   digitalWrite(ledPin, HIGH); // turn the LED back on to show data collection
