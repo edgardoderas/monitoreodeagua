@@ -18,11 +18,11 @@
 SoftwareSerial bluetooth(7, 6); //puerto serial especial para bluetooth
 RtcDS3231 reloj;
 
-char * filename = "tesis2.cvs";  /* sets the filename for data - change this
+char * filename = "tesis2.csv";  /* sets the filename for data - change this
   if you want to use a different file name
   data will be concatenated onto the existing
   file if it exists */
-float dataRate = 100;     // # of samples per second.
+float dataRate = 0.5;     // # of samples per second.
 int duration = 5000;       // set the data collection duration in milliseconds
 // default value is set to 5 seconds or 5000 milliseconds
 
@@ -51,6 +51,8 @@ int muxMSB = 11; //high byte of multiplexer
 int SensorRaw[2];
 float SensorVoltage[2];
 float VCC = 5.0;
+
+float PhRecibido;
 
 void setup()
 {
@@ -106,11 +108,11 @@ void setup()
   //Serial.print("Chan2");
 
 
-  Serial.println("");
-  Serial.print("s");
+  //Serial.println("");
+  //Serial.print("s");
 
   Serial.print("\t"); //tab character
-  Serial.print ("Cº");
+  Serial.print ("Cยบ");
   //Serial.print("\t"); //tab character
   //Serial.print ("V");
   Serial.println();
@@ -144,10 +146,10 @@ void loop()
 
   if (bluetooth.available()) {
     char a = bluetooth.read();
-    if (a == 'd'){
-        dataFile = SD.open(filename);
+    if (a == 'd') {
+      dataFile = SD.open(filename);
       if (dataFile) {
-      while (dataFile) // if it opens sucessfully
+        while (dataFile) // if it opens sucessfully
         {
           char letra = dataFile.read();
           if (letra == '/n')
@@ -157,43 +159,75 @@ void loop()
         }
         dataFile.close();
       }
+    }
   }
-}
 
-unsigned long currTime = millis();  // record current Time
+  unsigned long currTime = millis();  // record current Time
 
-if ( millis() > tiempoPasado + timeRef) {
-  tiempoPasado = millis();
-  ndx++;
-  digitalWrite(ledPin, LOW); // blink the LED off to show data being taken.
+  if ( millis() > tiempoPasado + timeRef) {
+    tiempoPasado = millis();
+    ndx++;
+    digitalWrite(ledPin, LOW); // blink the LED off to show data being taken.
 
-  // Read in sensor values
-  SensorRaw[0] = analogRead(A1_5V);
-  SensorRaw[1] = analogRead(A2_5V);
+    // Read in sensor values
+    SensorRaw[0] = analogRead(A1_5V);
+    SensorRaw[1] = analogRead(A2_5V);
 
-  //********************************************************************************
-  thermistor = resistance(SensorRaw[0]);     // converts raw analog value to a resistance
-  Temp = steinharthart(thermistor);              // Applies the Steinhart-hart equation
-  //********************************************************************************
+    //********************************************************************************
+    thermistor = resistance(SensorRaw[0]);     // converts raw analog value to a resistance
+    Temp = steinharthart(thermistor);              // Applies the Steinhart-hart equation
+    //********************************************************************************
 
-  // Convert to voltage values
-  SensorVoltage[0] = SensorRaw[0] * VCC / 1023.0;
-  SensorVoltage[1] = SensorRaw[1] * VCC / 1023.0;
-  /* // uncomment these lines of code to use the +/- 10V sensors
-  	  SensorRaw[0] = analogRead(A1_10V);
-        SensorRaw[1] = analogRead(A2_10V);
+    // Convert to voltage values
+    SensorVoltage[0] = SensorRaw[0] * VCC / 1023.0;
+    SensorVoltage[1] = SensorRaw[1] * VCC / 1023.0;
+    /* // uncomment these lines of code to use the +/- 10V sensors
+        SensorRaw[0] = analogRead(A1_10V);
+          SensorRaw[1] = analogRead(A2_10V);
 
-        // Convert to voltage values (20V range, -10V offset)
-        SensorVoltage[0] = SensorRaw[0]*20.0/1023.0 - 10.0;
-        SensorVoltage[1] = SensorRaw[1]*20.0/1023.0 - 10.0;
+          // Convert to voltage values (20V range, -10V offset)
+          SensorVoltage[0] = SensorRaw[0]*20.0/1023.0 - 10.0;
+          SensorVoltage[1] = SensorRaw[1]*20.0/1023.0 - 10.0;
 
-  */
+    */
 
-  dataFile = SD.open(filename, FILE_WRITE);
-  // if the file is available, write to it:
-  if (dataFile)
-  {
+    dataFile = SD.open(filename, FILE_WRITE);
+    // if the file is available, write to it:
+    if (dataFile)
+    {
+      char fechaimprimible[20];
+      RtcDateTime fechaactual = reloj.GetDateTime();
+      snprintf_P(fechaimprimible,
+                 sizeof(fechaimprimible),
+                 PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+                 fechaactual.Month(),
+                 fechaactual.Day(),
+                 fechaactual.Year(),
+                 fechaactual.Hour(),
+                 fechaactual.Minute(),
+                 fechaactual.Second() );
+      dataFile.print(fechaimprimible);
+      //dataFile.print((currTime - timeRef) / 1E3, 3); // 4 decimal places
+      dataFile.print(",");
+      dataFile.print(Temp);
+      dataFile.print(",");
+      dataFile.print(PhRecibido);
+      dataFile.println(";");
+      //dataFile.print("\t");
+      //dataFile.println(SensorVoltage[0]);
+      dataFile.close();
+    }
+
+    // if the file isn't open, pop up an error:
+    else
+    {
+      Serial.println("Error opening file.");
+    }
+    // Serial print to the serial monitor
     char fechaimprimible[20];
+    PhRecibido = ((-4) * (SensorVoltage[1]) + 13.96);
+
+
     RtcDateTime fechaactual = reloj.GetDateTime();
     snprintf_P(fechaimprimible,
                sizeof(fechaimprimible),
@@ -204,45 +238,17 @@ if ( millis() > tiempoPasado + timeRef) {
                fechaactual.Hour(),
                fechaactual.Minute(),
                fechaactual.Second() );
-    dataFile.print(fechaimprimible);
-    //dataFile.print((currTime - timeRef) / 1E3, 3); // 4 decimal places
-    dataFile.print(",");
-    dataFile.print(Temp);
-    dataFile.print(",");
-    dataFile.print(SensorVoltage[1]);
-    dataFile.println(";");
-    //dataFile.print("\t");
-    //dataFile.println(SensorVoltage[0]);
-    dataFile.close();
-  }
+    Serial.print(fechaimprimible);
+    Serial.print("\t"); // tab character
+    Serial.print(Temp);
+    Serial.print("\t");
+    Serial.print(PhRecibido);
+    Serial.print("Ph");
+    Serial.println();
 
-  // if the file isn't open, pop up an error:
-  else
-  {
-    Serial.println("Error opening file.");
+    digitalWrite(ledPin, HIGH); // turn the LED back on to show data collection
+    // duration is still running.
   }
-  // Serial print to the serial monitor
-  char fechaimprimible[20];
-  RtcDateTime fechaactual = reloj.GetDateTime();
-  snprintf_P(fechaimprimible,
-             sizeof(fechaimprimible),
-             PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
-             fechaactual.Month(),
-             fechaactual.Day(),
-             fechaactual.Year(),
-             fechaactual.Hour(),
-             fechaactual.Minute(),
-             fechaactual.Second() );
-  Serial.print(fechaimprimible);
-  Serial.print("\t"); // tab character
-  Serial.print(Temp);
-  Serial.print("\t");
-  Serial.print(SensorVoltage[1]);
-  Serial.println();
-
-  digitalWrite(ledPin, HIGH); // turn the LED back on to show data collection
-  // duration is still running.
-}
 
 } // end of loop
 
@@ -291,6 +297,7 @@ float steinharthart(unsigned long resistance)
   temp = 1 / (k0 + k1 * logRes + k2 * logRes * logRes * logRes);
   temp = temp - 273.15;  // convert from Kelvin to Celsius
   return temp;
+
 }
 
 
