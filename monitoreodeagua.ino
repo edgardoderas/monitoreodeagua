@@ -35,6 +35,7 @@ unsigned long timeRef;      // reference for starting time
 unsigned long timeInterval;
 unsigned long elapsedTime;
 unsigned long ndx = 0;
+int Frecuencia = 15;
 
 const int buttonPin = 12;   // digital button on Vernier Shield - used to start data collect
 const int ledPin = 13;      // LED pin on Vernier Shield
@@ -94,7 +95,7 @@ void setup()
   Serial.println();
 
   /***********************
-     / Print data header
+    / Print data header
     /***********************/
   Serial.println(" ");
   Serial.println("Vernier Format 2");
@@ -149,23 +150,26 @@ void loop()
     if (a == 'd') {
       dataFile = SD.open(filename);
       if (dataFile) {
-        while (dataFile) // if it opens sucessfully
+        while (dataFile.available()) // if it opens sucessfully
         {
           char letra = dataFile.read();
           if (letra == '/n')
             delay(500);
           bluetooth.write(letra);
-
         }
         dataFile.close();
       }
     }
+    else if ( a == 'c') {
+      SD.remove(filename);
+      bluetooth.println("Borrada SD");
+    }
   }
 
-  unsigned long currTime = millis();  // record current Time
+  RtcDateTime TiempoMinutos = reloj.GetDateTime();
 
-  if ( millis() > tiempoPasado + timeRef) {
-    tiempoPasado = millis();
+  if ( TiempoMinutos.Minute() != tiempoPasado && TiempoMinutos.Minute() % Frecuencia == 0) {
+    tiempoPasado = TiempoMinutos.Minute();
     ndx++;
     digitalWrite(ledPin, LOW); // blink the LED off to show data being taken.
 
@@ -191,6 +195,8 @@ void loop()
 
     */
 
+    PhRecibido = ((-4) * (SensorVoltage[1]) + 13.96);
+    
     dataFile = SD.open(filename, FILE_WRITE);
     // if the file is available, write to it:
     if (dataFile)
@@ -225,7 +231,6 @@ void loop()
     }
     // Serial print to the serial monitor
     char fechaimprimible[20];
-    PhRecibido = ((-4) * (SensorVoltage[1]) + 13.96);
 
 
     RtcDateTime fechaactual = reloj.GetDateTime();
