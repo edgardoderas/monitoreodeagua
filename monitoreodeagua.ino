@@ -1,8 +1,3 @@
-#if defined(ESP8266)
-#include <pgmspace.h>
-#else
-#include <avr/pgmspace.h>
-#endif
 #include <Wire.h>  // must be incuded here so that Arduino library object file references work
 #include <RtcDS3231.h>
 #include <SD.h>      // includes the Arduino SD Library 
@@ -11,9 +6,8 @@
 // A1 = Analog 1
 // A2 = Analog 2
 #define A1_5V 0
-#define A1_10V 1
+
 #define A2_5V 2
-#define A2_10V 3
 
 SoftwareSerial bluetooth(7, 6); //puerto serial especial para bluetooth
 RtcDS3231 reloj;
@@ -22,9 +16,7 @@ char * filename = "tesis2.csv";  /* sets the filename for data - change this
   if you want to use a different file name
   data will be concatenated onto the existing
   file if it exists */
-float dataRate = 0.5;     // # of samples per second.
-int duration = 5000;       // set the data collection duration in milliseconds
-// default value is set to 5 seconds or 5000 milliseconds
+
 
 float Temp;
 unsigned long thermistor;
@@ -35,17 +27,13 @@ unsigned long timeRef;      // reference for starting time
 unsigned long timeInterval;
 unsigned long elapsedTime;
 unsigned long ndx = 0;
-int Frecuencia = 15;
-
-const int buttonPin = 12;   // digital button on Vernier Shield - used to start data collect
+int Frecuencia = 1;
 const int ledPin = 13;      // LED pin on Vernier Shield
 
 /* Global Variable declarations for SD Card Shield */
 const int chipSelect = 8;
 File dataFile;
 
-// variables used with VernierAnalogAutoID
-//
 int muxLSB = 10; //low byte of multiplexer
 int muxMSB = 11; //high byte of multiplexer
 
@@ -62,19 +50,8 @@ void setup()
   bluetooth.begin(9600);
   reloj.Begin();
 
-  // set the timeInterval based on dataRate
-  timeInterval = 1E3 / dataRate;
-
-  // initialize the buttonPin as an INPUT with a pull-up resistor
-  pinMode(buttonPin, INPUT_PULLUP);
   pinMode(muxLSB, OUTPUT);
   pinMode(muxMSB, OUTPUT);
-
-  Serial.println("*************************************************");
-  Serial.println("Push button (D12) to start data collection.");
-  Serial.println("Use reset button to reset / stop data collection.");
-  Serial.println("*************************************************");
-
 
   /***********************
      / Setup SD Card
@@ -133,21 +110,61 @@ void setup()
     Serial.println();
   }
 
-  digitalWrite(ledPin, HIGH);
-  timeRef = millis();
-  ndx = 0;   // datapoint index
 
 
-  tiempoPasado = millis();
-
-} // end setup
+}
 
 void loop()
 {
 
   if (bluetooth.available()) {
     char a = bluetooth.read();
-    if (a == 'd') {
+    if (a == 's') {
+      int sensorAcalibrar = bluetooth.read() - '0';
+      if (sensorAcalibrar <= 6 && sensorAcalibrar >= 0) {
+        bluetooth.println("coloque el sensor en la sustancia 1");
+        bluetooth.println("ingrese el valor de la sustancia 1");
+        do {
+          bluetooth.read();
+        } while (bluetooth.available());
+        delay(2000);
+        do {
+
+        } while (!bluetooth.available());
+        float y1 = bluetooth.parseFloat();
+        float x1 = analogRead(sensorAcalibrar);
+        bluetooth.println("coloque el sensor en la sustancia 2");
+        bluetooth.println("ingrese el valor de la sustancia 2");
+        do {
+          bluetooth.read();
+        } while (bluetooth.available());
+        delay(2000);
+        do {
+
+        } while (!bluetooth.available());
+        float y2 = bluetooth.parseFloat();
+        float x2 = analogRead(sensorAcalibrar);
+        Serial.print("x1=");
+        Serial.print(x1);
+        Serial.print("y1=");
+        Serial.println(y1);
+        Serial.print("x2=");
+        Serial.print(x2);
+        Serial.print("y2=");
+        Serial.println(y2);
+        delay(500);
+
+        float m = (y2-y1)/(x2-x1);
+        Serial.print("la pendiente es:");
+        Serial.println(m);
+        
+
+        
+
+
+      }
+    }
+    else if (a == 'd') {
       dataFile = SD.open(filename);
       if (dataFile) {
         while (dataFile.available()) // if it opens sucessfully
@@ -195,8 +212,8 @@ void loop()
 
     */
 
-    PhRecibido = ((-4) * (SensorVoltage[1]) + 13.96);
-    
+    //PhRecibido = ((-4) * (SensorVoltage[1]) + 13.96);
+
     dataFile = SD.open(filename, FILE_WRITE);
     // if the file is available, write to it:
     if (dataFile)
@@ -213,11 +230,10 @@ void loop()
                  fechaactual.Minute(),
                  fechaactual.Second() );
       dataFile.print(fechaimprimible);
-      //dataFile.print((currTime - timeRef) / 1E3, 3); // 4 decimal places
       dataFile.print(",");
       dataFile.print(Temp);
       dataFile.print(",");
-      dataFile.print(PhRecibido);
+      dataFile.print(SensorVoltage[1]);
       dataFile.println(";");
       //dataFile.print("\t");
       //dataFile.println(SensorVoltage[0]);
@@ -247,7 +263,7 @@ void loop()
     Serial.print("\t"); // tab character
     Serial.print(Temp);
     Serial.print("\t");
-    Serial.print(PhRecibido);
+    Serial.print(SensorVoltage[1]);
     Serial.print("Ph");
     Serial.println();
 
