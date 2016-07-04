@@ -12,7 +12,7 @@
 SoftwareSerial bluetooth(7, 6); //puerto serial especial para bluetooth
 RtcDS3231 reloj;
 
-char * filename2 = "calibracion.csv";
+char * filename2 = "cali.txt";
 char * filename = "tesis2.csv";
 long tiempoPasado;
 int Frecuencia = 1;
@@ -54,13 +54,14 @@ void setup()
   dataFile2 = SD.open(filename2, FILE_WRITE);
   if (dataFile2)
   {
-    dataFile.close();
+    dataFile2.close();
   }
   else
   {
     Serial.println("error opening file.");
     Serial.println();
   }
+
   dataFile = SD.open(filename, FILE_WRITE);
   if (dataFile)
   {
@@ -111,15 +112,30 @@ void loop()
         Serial.print(x2);
         Serial.print("y2=");
         Serial.println(y2);
-        delay(500);
+        delay(1000);
 
         float m = (y2 - y1) / (x2 - x1);
-        float constante= -m*x1+y1;
-        c1 = m * SensorVoltage[0] + constante ;
-        Serial.print("la pendiente es:");
-        Serial.println(m);
-        Serial.print("constante es:");
-        Serial.println(constante);
+        float constante = -m * x1 + y1;
+        c1 = m * SensorVoltage[0] + constante ;// sensor calibrado
+        Serial.print("M:");
+        Serial.print(m);
+        Serial.println("n");
+        Serial.print("C:");
+        Serial.print(constante);
+        Serial.println("n");
+        dataFile2 = SD.open(filename2, FILE_WRITE);
+        // if the file is available, write to it:
+        if (dataFile2)
+        {
+          dataFile2.print("M:");
+          dataFile2.print(m);
+          dataFile2.println("n");
+          dataFile2.print("C:");
+          dataFile2.print(constante);
+          dataFile2.println("n");
+
+          dataFile2.close();
+        }
 
       }
     }
@@ -138,6 +154,7 @@ void loop()
     }
     else if ( a == 'c') {
       SD.remove(filename);
+      SD.remove(filename2);
       bluetooth.println("Borrada SD");
     }
   }
@@ -166,58 +183,28 @@ void loop()
     SensorVoltage[4] = SensorRaw[4] * VCC / 1023.0;
     SensorVoltage[5] = SensorRaw[5] * VCC / 1023.0;
     //abriendo carpeta filename2
-    dataFile2 = SD.open(filename2, FILE_WRITE);
-    // if the file is available, write to it:
-    if (dataFile2)
-    {
-      dataFile2.print("la pendiente es:");
-      dataFile2.println(m);
-      dataFile2.print("la constante es:");
-      dataFile2.println(constante);
-
-      dataFile2.close();
-
-
-
-      //abriendo carpeta filename
-      dataFile = SD.open(filename, FILE_WRITE);
+    /* dataFile2 = SD.open(filename2, FILE_WRITE);
       // if the file is available, write to it:
-      if (dataFile)
+      if (dataFile2)
       {
-        char fechaimprimible[20];
-        RtcDateTime fechaactual = reloj.GetDateTime();
-        snprintf_P(fechaimprimible,
-                   sizeof(fechaimprimible),
-                   PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
-                   fechaactual.Month(),
-                   fechaactual.Day(),
-                   fechaactual.Year(),
-                   fechaactual.Hour(),
-                   fechaactual.Minute(),
-                   fechaactual.Second() );
-        dataFile.print(fechaimprimible);
-        dataFile.print(",");
-        dataFile.print(SensorVoltage[0]);
-        dataFile.print(",");
-        dataFile.print(SensorVoltage[1]);
-        dataFile.print(",");
-        dataFile.print(SensorVoltage[2]);
-        dataFile.print(",");
-        dataFile.print(SensorVoltage[3]);
-        dataFile.print(",");
-        dataFile.print(SensorVoltage[4]);
-        dataFile.print(",");
-        dataFile.print(SensorVoltage[5]);
-        dataFile.close();
+       dataFile2.print("M:");
+       dataFile2.print(m);
+       dataFile2.println("n");
+       dataFile2.print("C:");
+       dataFile2.print(constante);
+       dataFile2.println("n");
+
+       dataFile2.close();
       }
-      else
-      {
-        Serial.println("Error opening file.");
-      }
-      // Serial print to the serial monitor
+    */
+
+
+    //abriendo carpeta filename
+    dataFile = SD.open(filename, FILE_WRITE);
+    // if the file is available, write to it:
+    if (dataFile)
+    {
       char fechaimprimible[20];
-
-
       RtcDateTime fechaactual = reloj.GetDateTime();
       snprintf_P(fechaimprimible,
                  sizeof(fechaimprimible),
@@ -228,25 +215,55 @@ void loop()
                  fechaactual.Hour(),
                  fechaactual.Minute(),
                  fechaactual.Second() );
-      Serial.print(fechaimprimible);
-      Serial.print("\t");
-      Serial.print(SensorVoltage[0]);
-      Serial.print("\t");
-      Serial.print(SensorVoltage[1]);
-      Serial.print("\t");
-      Serial.print(SensorVoltage[2]);
-      Serial.print("\t");
-      Serial.print(SensorVoltage[3]);
-      Serial.print("\t");
-      Serial.print(SensorVoltage[4]);
-      Serial.print("\t");
-      Serial.print(SensorVoltage[5]);
-      Serial.println();
-
-
+      dataFile.print(fechaimprimible);
+      dataFile.print(",");
+      dataFile.print(SensorVoltage[0]);
+      dataFile.print(",");
+      dataFile.print(SensorVoltage[1]);
+      dataFile.print(",");
+      dataFile.print(SensorVoltage[2]);
+      dataFile.print(",");
+      dataFile.print(SensorVoltage[3]);
+      dataFile.print(",");
+      dataFile.print(SensorVoltage[4]);
+      dataFile.print(",");
+      dataFile.print(SensorVoltage[5]);
+      dataFile.close();
     }
+    else
+    {
+      Serial.println("Error opening file.");
+    }
+    // Serial print to the serial monitor
+    char fechaimprimible[20];
+
+
+    RtcDateTime fechaactual = reloj.GetDateTime();
+    snprintf_P(fechaimprimible,
+               sizeof(fechaimprimible),
+               PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+               fechaactual.Month(),
+               fechaactual.Day(),
+               fechaactual.Year(),
+               fechaactual.Hour(),
+               fechaactual.Minute(),
+               fechaactual.Second() );
+    Serial.print(fechaimprimible);
+    Serial.print("\t");
+    Serial.print(SensorVoltage[0]);
+    Serial.print("\t");
+    Serial.print(SensorVoltage[1]);
+    Serial.print("\t");
+    Serial.print(SensorVoltage[2]);
+    Serial.print("\t");
+    Serial.print(SensorVoltage[3]);
+    Serial.print("\t");
+    Serial.print(SensorVoltage[4]);
+    Serial.print("\t");
+    Serial.print(SensorVoltage[5]);
+    Serial.println();
+
+
   }
 }
-
-
 
